@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Mini RPG Game</title>
+    <style>
+        canvas {
+            
+            border: 1px solid black;
+        }
+    </style>
+</head>
+
+<body>
+<h1>Canvas RPG Game</h1>
+<canvas id="gameCanvas" width="700" height="450"></canvas>
+
+<script>
+/* ==============================
+   SETUP
+============================== */
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+/* ==============================
+   IMAGES
+============================== */
+const playerImg = new Image();
+playerImg.src = "https://codehs.com/uploads/c77fa2293a96432fd4cd46337d7623a0";
+
+const npcImages = [
+    "https://codehs.com/uploads/db97b92208a0e986335053626abad081",
+    "https://cdn.pixilart.com/photos/large/eb43f303c0b50c6.png",
+    "https://art.pixilart.com/sr5z9916b6256eaws3.png",
+    "https://art.pixilart.com/sr5z3d52961ce2aws3.png",
+    "https://art.pixilart.com/sr5zdae7295b97aws3.png"
+].map(src => {
+    const img = new Image();
+    img.src = src;
+    return img;
+});
+
+const houseImg = new Image();
+houseImg.src = "https://art.pixilart.com/sr5zb786f425aeaws3.png"; // outside house
+
+const insideHouseImg = new Image();
+insideHouseImg.src = "https://art.pixilart.com/sr5z33383dd5a5aws3.png"; // house interior image
+
+const cellarImg = new Image();
+cellarImg.src = "https://art.pixilart.com/sr5z4c360194bfaws3.png"; // cellar image
+
+/* ==============================
+   HOUSE & CELLAR AREAS
+============================== */
+const house = { x: 350, y: 0, width: 400, height: 400 };
+const houseEntrance = { x: 0, y: 0, width: 700, height: 50 }; // top of house inside
+const cellarDoor = { x: 300, y: 350, width: 100, height: 50 }; // bottom inside house
+
+/* ==============================
+   PLAYER
+============================== */
+const player = { x: 320, y: 200, width: 60, height: 60, speed: 5 };
+
+/* ==============================
+   NPCs
+============================== */
+const npcs = [
+    { name: "Villager1", x: 100, y: 80, width: 60, height: 60, img: npcImages[0], dialogue: ["I have depression.", "I think about killing myself all the time."] },
+    { name: "Villager2", x: 200, y: 100, width: 60, height: 60, img: npcImages[1], dialogue: ["I feel anxious and I'm unable to calm down.", "I am very sleep deprived."] },
+    { name: "Villager3", x: 200, y: 320, width: 60, height: 60, img: npcImages[2], dialogue: ["Oh, I didn't notice you were talking to me.", "I have ADHD so I feel energetic all the time."] },
+    { name: "Villager4", x: 250, y: 300, width: 60, height: 60, img: npcImages[3], dialogue: ["It's such a nice day today!"] },
+    { name: "Villager5", x: 600, y: 200, width: 60, height: 60, img: npcImages[4], dialogue: ["I have Conduct Disorder sometimes."] }
+];
+
+/* ==============================
+   CONVERSATION SYSTEM
+============================== */
+let talking = false;
+let activeNPC = null;
+let dialogueIndex = 0;
+
+/* ==============================
+   HOUSE & CELLAR STATE
+============================== */
+let insideHouse = false;
+let insideCellar = false;
+
+/* ==============================
+   KEYBOARD INPUT
+============================== */
+const keys = {};
+
+window.addEventListener("keydown", e => {
+    keys[e.key] = true;
+
+    if (e.key === "e" || e.key === "E") {
+        if (!talking) {
+            if (!insideHouse) {
+                checkNPCInteraction();
+                checkHouseInteraction();
+            } else {
+                checkInsideHouseInteractions();
+            }
+        } else {
+            dialogueIndex++;
+            if (dialogueIndex >= activeNPC.dialogue.length) {
+                talking = false;
+                activeNPC = null;
+                dialogueIndex = 0;
+            }
+        }
+    }
+});
+
+window.addEventListener("keyup", e => { keys[e.key] = false; });
+
+/* ==============================
+   PLAYER MOVEMENT
+============================== */
+function movePlayer() {
+    if (talking) return;
+    if (keys["ArrowRight"]) player.x += player.speed;
+    if (keys["ArrowLeft"]) player.x -= player.speed;
+    if (keys["ArrowUp"]) player.y -= player.speed;
+    if (keys["ArrowDown"]) player.y += player.speed;
+
+    if (player.x < 0) player.x = 0;
+    if (player.y < 0) player.y = 0;
+    if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+    if (player.y + player.height > canvas.height) player.y = canvas.height - player.height;
+}
+
+/* ==============================
+   NPC INTERACTION
+============================== */
+function checkNPCInteraction() {
+    for (let npc of npcs) {
+        if (player.x < npc.x + npc.width &&
+            player.x + player.width > npc.x &&
+            player.y < npc.y + npc.height &&
+            player.y + player.height > npc.y) {
+            activeNPC = npc;
+            talking = true;
+            dialogueIndex = 0;
+        }
+    }
+}
+
+/* ==============================
+   HOUSE INTERACTION
+============================== */
+function checkHouseInteraction() {
+    if (player.x < house.x + house.width &&
+        player.x + player.width > house.x &&
+        player.y < house.y + house.height &&
+        player.y + player.height > house.y) {
+        insideHouse = true;
+        player.x = 320;
+        player.y = 300;
+    }
+}
+
+function checkInsideHouseInteractions() {
+    if (insideCellar) {
+        // exit cellar back to house interior
+        if (player.y < 50) {
+            insideCellar = false;
+            player.x = 320;
+            player.y = 300;
+        }
+    } else {
+        // exit house to outside
+        if (player.x + player.width > houseEntrance.x &&
+            player.x < houseEntrance.x + houseEntrance.width &&
+            player.y < houseEntrance.y + houseEntrance.height) {
+            insideHouse = false;
+            player.x = house.x + 20;
+            player.y = house.y + house.height + 10;
+        }
+
+        // enter cellar
+        if (player.x + player.width > cellarDoor.x &&
+            player.x < cellarDoor.x + cellarDoor.width &&
+            player.y + player.height > cellarDoor.y &&
+            player.y < cellarDoor.y + cellarDoor.height) {
+            insideCellar = true;
+            player.x = 320;
+            player.y = 50;
+        }
+    }
+}
+
+/* ==============================
+   DRAW FUNCTIONS
+============================== */
+function drawPlayer() { ctx.drawImage(playerImg, player.x, player.y, player.width, player.height); }
+
+function drawNPCs() {
+    if (!insideHouse) {
+        for (let npc of npcs) { ctx.drawImage(npc.img, npc.x, npc.y, npc.width, npc.height); }
+    }
+}
+
+function drawHouse() {
+    if (!insideHouse) { ctx.drawImage(houseImg, house.x, house.y, house.width, house.height); }
+}
+
+function drawDialogue() {
+    if (talking && activeNPC) {
+        ctx.fillStyle = "white";
+        ctx.fillRect(50, 350, 600, 80);
+        ctx.strokeStyle = "black";
+        ctx.strokeRect(50, 350, 600, 80);
+        ctx.fillStyle = "black";
+        ctx.font = "18px Arial";
+        ctx.fillText(activeNPC.dialogue[dialogueIndex], 70, 395);
+    }
+}
+
+function draw() {
+    if (!insideHouse) {
+        ctx.fillStyle = "#4CAF50"; ctx.fillRect(0,0,canvas.width,canvas.height);
+        drawHouse();
+    } else if (insideCellar) {
+        ctx.drawImage(cellarImg, 0, 0, canvas.width, canvas.height);
+    } else {
+        ctx.drawImage(insideHouseImg, 0, 0, canvas.width, canvas.height);
+    }
+
+    drawPlayer();
+    drawNPCs();
+    drawDialogue();
+}
+
+/* ==============================
+   GAME LOOP
+============================== */
+function gameLoop() {
+    movePlayer();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+/* ==============================
+   IMAGE LOADING
+============================== */
+const allImages = [playerImg, houseImg, insideHouseImg, cellarImg, ...npcImages];
+let loadedCount = 0;
+
+allImages.forEach(img => {
+    img.onload = () => {
+        loadedCount++;
+        if (loadedCount === allImages.length) {
+            gameLoop(); // start game only when all images loaded
+        }
+    };
+});
+</script>
+
+</body>
+</html>`
